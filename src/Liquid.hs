@@ -7,16 +7,17 @@ import Control.Monad.Combinators.Expr -- from parser-combinators
 import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Char
+import Text.Megaparsec.Debug
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Text.Megaparsec.Char.Lexer as L
 
-data LObject
+data LiquidObject
   = LIdentifier String
-  | Assign String LObject
+  | Assign String LiquidObject
   | StringLiteral String
   | YAMLPreamble String
-  | Seq [LObject]
+  | Seq [LiquidObject]
   deriving (Show)
 
 type Parser = Parsec Void String
@@ -46,7 +47,7 @@ reservedWord :: String -> Parser ()
 reservedWord w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 reservedWords :: [String]
-reservedWords = ["if", "endif", "for", "endfor", "assign"]
+reservedWords = ["if", "endif", "for", "endfor", "assign", "capture", "endcapture", "query_graph", "in"]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -56,38 +57,38 @@ identifier = (lexeme . try) (p >>= check)
                  then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                  else return x
 
-whileParser :: Parser LObject
-whileParser = between spaceConsumer eof lObject
+whileParser :: Parser LiquidObject
+whileParser = between spaceConsumer eof liquidObject
 
-lObject :: Parser LObject
-lObject = f <$> sepBy1 lObject' spaceConsumer
+liquidObject :: Parser LiquidObject
+liquidObject = f <$> sepBy1 liquidObject' spaceConsumer
   where
     f l = if length l == 1 then head l else Seq l
 
-lObject' :: Parser LObject
-lObject' = parens lObject
-  <|> curlys lObject
+liquidObject' :: Parser LiquidObject
+liquidObject' = parens liquidObject
+  <|> curlys liquidObject
   <|> yamlPreamble
   <|> stringLiteral
   <|> assignStatement
 
-stringLiteral :: Parser LObject
+stringLiteral :: Parser LiquidObject
 stringLiteral = do
   void (symbol "\"")
-  value <- some (alphaNumChar <|> char ' ')
+  value <- dbg "string" (some (alphaNumChar <|> char ' '))
   void (symbol "\"")
   return (StringLiteral value)
 
-assignStatement :: Parser LObject
+assignStatement :: Parser LiquidObject
 assignStatement = do
   void (symbol "assign")
-  var <- identifier
+  var <- dbg "identifier" identifier
   void (symbol "=")
   expr <- stringLiteral
   return (Assign var expr)
 
-yamlPreamble :: Parser LObject
+yamlPreamble :: Parser LiquidObject
 yamlPreamble = do
   void (symbol "---")
-  value <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol "---"))
+  value <- dbg "yaml" ((lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol "---")))
   return (YAMLPreamble value)

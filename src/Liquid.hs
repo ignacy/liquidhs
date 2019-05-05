@@ -51,7 +51,7 @@ reservedWords = ["if", "endif", "for", "endfor", "assign"]
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
-    p = (:) <$> letterChar <*> many alphaNumChar
+    p = (:) <$> letterChar <*> many (alphaNumChar <|> char '_')
     check x = if x `elem` reservedWords
                  then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                  else return x
@@ -89,6 +89,5 @@ assignStatement = do
 yamlPreamble :: Parser LObject
 yamlPreamble = do
   void (symbol "---")
-  value <- (lexeme . try) (some (L.charLiteral <|> newline))
-  void (symbol "---")
+  value <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol "---"))
   return (YAMLPreamble value)

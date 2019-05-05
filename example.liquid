@@ -1,0 +1,36 @@
+---
+slug: apis/stripe_webhooks/process
+method: post
+authorization_policies:
+  - validate_stripe_signature
+---
+
+{% comment %}
+  This is a comment that does not say much.
+{% endcomment %}
+
+{{ "hej ho" }}
+
+{% assign a = "b" %}
+{% query_graph 'get_request_headers', result_name: 'request' %}
+{% assign header = request.request.headers['HTTP_STRIPE_SIGNATURE'] | split: ',' %}
+{% capture signature_json %}
+{
+  {% for element in header  %}
+    {% assign kv = element | split: '=' %}
+    "{{ kv[0] }}": "{{ kv[1] }}"{% if forloop.last != true %},{% endif %}
+  {% endfor %}
+}
+{% endcapture %}
+{% assign signature_hash = signature_json | to_hash %}
+{% assign params_json = request.request.body %}
+{% assign signed_payload = signature_hash.t | append: '.' | append: params_json %}
+{% assign signature = signed_payload | compute_hmac: context.constants.stripe_webhook_secret  %}
+
+{% if signature == signature_hash.v1 %}
+  {% if params.type == 'payout.paid' %}
+    {% include 'webhooks/payout_paid' %}
+  {% elsif params.type == 'customer.source.expiring' %}
+    {% include 'webhooks/card_expiring' %}
+  {% endif %}
+{% endif %}

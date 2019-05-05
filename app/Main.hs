@@ -1,6 +1,9 @@
 module Main where
 
-import Lib
+import Liquid
+import Text.Megaparsec
 
 main :: IO ()
-main = someFunc
+main = do
+  input <- getContents
+  parseTest whileParser input

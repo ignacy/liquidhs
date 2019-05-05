@@ -15,6 +15,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 data LiquidObject
   = LIdentifier String
   | Assign String LiquidObject
+  | Capture String LiquidObject
   | StringLiteral String
   | YAMLPreamble String
   | Seq [LiquidObject]
@@ -39,6 +40,9 @@ parens = between (symbol "{{") (symbol "}}")
 
 curlys :: Parser a -> Parser a
 curlys = between (symbol "{%") (symbol "%}")
+
+jsonParens :: Parser a -> Parser a
+jsonParens = between (symbol "{") (symbol "}")
 
 integer :: Parser Integer
 integer = lexeme L.decimal
@@ -71,11 +75,13 @@ liquidObject' = parens liquidObject
   <|> yamlPreamble
   <|> stringLiteral
   <|> assignStatement
+  <|> captureStatement
+  <|> jsonParens liquidObject
 
 stringLiteral :: Parser LiquidObject
 stringLiteral = do
   void (symbol "\"")
-  value <- dbg "string" (some (alphaNumChar <|> char ' '))
+  value <- dbg "string" (some (alphaNumChar <|> char ' ' <|> char '_'))
   void (symbol "\"")
   return (StringLiteral value)
 
@@ -92,3 +98,13 @@ yamlPreamble = do
   void (symbol "---")
   value <- dbg "yaml" ((lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol "---")))
   return (YAMLPreamble value)
+
+captureStatement :: Parser LiquidObject
+captureStatement = do
+  void (symbol "capture")
+  ident <- dbg "capture name" identifier
+  void (symbol "%}")
+  value <- dbg "capture value" liquidObject'
+  void (symbol "{%")
+  void (symbol "endcapture")
+  return (Capture ident value)

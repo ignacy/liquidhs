@@ -106,6 +106,15 @@ anExpression :: Parser String
 anExpression = do
   dbg "anAssignmentExpression" ((lexeme . try) (manyTill (L.charLiteral) (try $ symbol "%}")))
 
+# Problem jest powyżej: (symbol "%}") 'konsumuje' ten symbol
+# trzeba zrobić być może parser na expresion który ma postać:
+# signature_hash.t | append: '.' | uppcase | append: params_json
+# Czyli mamy:
+# (Expresion | String) Filters
+# Filters miałoby postać:
+# sepBy FILTER (char '|')
+# a Filter to "nazwa: i paramter" lub tylko "nazwa"
+
 yamlPreamble :: Parser LiquidObject
 yamlPreamble = do
   void (symbol "---")

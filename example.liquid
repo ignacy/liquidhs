@@ -13,9 +13,9 @@ authorization_policies:
 
 {% assign variable = "value" %}
 
+{% assign header = request.request.headers['HTTP_STRIPE_SIGNATURE'] | split: ',' %}
 {% comment %}
 {% query_graph 'get_request_headers', result_name: 'request' %}
-{% assign header = request.request.headers['HTTP_STRIPE_SIGNATURE'] | split: ',' %}
 {% endcomment %}
 
 {% capture signature_json %}
@@ -30,12 +30,12 @@ authorization_policies:
 }
 {% endcapture %}
 
-{% comment %}
 {% assign signature_hash = signature_json | to_hash %}
 {% assign params_json = request.request.body %}
 {% assign signed_payload = signature_hash.t | append: '.' | append: params_json %}
 {% assign signature = signed_payload | compute_hmac: context.constants.stripe_webhook_secret  %}
 
+{% comment %}
 {% if signature == signature_hash.v1 %}
   {% if params.type == 'payout.paid' %}
     {% include 'webhooks/payout_paid' %}
@@ -45,3 +45,5 @@ authorization_policies:
 {% endif %}
 
 {% endcomment %}
+
+{{ "page end" }}

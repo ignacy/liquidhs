@@ -12,9 +12,11 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Text.Megaparsec.Char.Lexer as L
 
+data Expression = AString String | AnExpression Expression deriving (Show)
+
 data LiquidObject
   = LIdentifier String
-  | Assign String LiquidObject
+  | Assign String Expression
   | Capture String LiquidObject
   | StringLiteral String
   | YAMLPreamble String
@@ -85,13 +87,24 @@ stringLiteral = do
   void (symbol "\"")
   return (StringLiteral value)
 
+justString :: Parser String
+justString = do
+  void (symbol "\"")
+  value <- dbg "string" (some (alphaNumChar <|> char ' ' <|> char '_'))
+  void (symbol "\"")
+  return value
+
 assignStatement :: Parser LiquidObject
 assignStatement = do
   void (symbol "assign")
   var <- dbg "identifier" identifier
   void (symbol "=")
-  expr <- stringLiteral
-  return (Assign var expr)
+  expr <- (justString <|> anExpression)
+  return (Assign var (AString expr))
+
+anExpression :: Parser String
+anExpression = do
+  dbg "anAssignmentExpression" ((lexeme . try) (manyTill (L.charLiteral) (try $ symbol "%}")))
 
 yamlPreamble :: Parser LiquidObject
 yamlPreamble = do

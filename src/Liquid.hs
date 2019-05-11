@@ -12,11 +12,13 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Text.Megaparsec.Char.Lexer as L
 
-data Expression = AString String | AnExpression Expression deriving (Show)
+data Filter = FilterName String
+  | ParameterizedFilterName String String
+  deriving (Show)
 
 data LiquidObject
   = LIdentifier String
-  | Assign String Expression
+  | Assign String String [Filter]
   | Capture String LiquidObject
   | StringLiteral String
   | YAMLPreamble String
@@ -58,7 +60,7 @@ reservedWords = ["if", "endif", "for", "endfor", "assign", "capture", "endcaptur
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
-    p = (:) <$> letterChar <*> many (alphaNumChar <|> char '_')
+    p = (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '.' <|> char '[' <|> char ']' <|> char '\'')
     check x = if x `elem` reservedWords
                  then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                  else return x
@@ -76,7 +78,7 @@ liquidObject' = parens liquidObject
   <|> curlys liquidObject
   <|> yamlPreamble
   <|> stringLiteral
-  <|> assignStatement
+  <|> assignement
   <|> captureStatement
   <|> jsonParens liquidObject
 
@@ -87,33 +89,40 @@ stringLiteral = do
   void (symbol "\"")
   return (StringLiteral value)
 
+getString :: Parser String
+getString = dbg "String" (some (alphaNumChar <|> char ' ' <|> char '_'))
+
 justString :: Parser String
 justString = do
   void (symbol "\"")
-  value <- dbg "string" (some (alphaNumChar <|> char ' ' <|> char '_'))
+  value <- dbg "string" getString
   void (symbol "\"")
   return value
 
-assignStatement :: Parser LiquidObject
-assignStatement = do
+assignement :: Parser LiquidObject
+assignement = do
   void (symbol "assign")
   var <- dbg "identifier" identifier
   void (symbol "=")
-  expr <- (justString <|> anExpression)
-  return (Assign var (AString expr))
+  expr <- dbg "expressionValue" (justString <|> identifier)
+  skipMany $ symbol "| "
+  filters <- dbg "expressionFilters" $ (filterCall `sepBy` (symbol "| "))
+  return (Assign var expr filters)
 
-anExpression :: Parser String
-anExpression = do
-  dbg "anAssignmentExpression" ((lexeme . try) (manyTill (L.charLiteral) (try $ symbol "%}")))
+filterCall :: Parser Filter
+filterCall = try filterWithParam <|> filterWithoutParam
 
-# Problem jest powyżej: (symbol "%}") 'konsumuje' ten symbol
-# trzeba zrobić być może parser na expresion który ma postać:
-# signature_hash.t | append: '.' | uppcase | append: params_json
-# Czyli mamy:
-# (Expresion | String) Filters
-# Filters miałoby postać:
-# sepBy FILTER (char '|')
-# a Filter to "nazwa: i paramter" lub tylko "nazwa"
+filterWithParam :: Parser Filter
+filterWithParam = do
+  name <- identifier
+  void (symbol ":")
+  parameter <- (some (alphaNumChar <|> char ' ' <|> char '_' <|> char '\'' <|> char ',' <|> char '.'))
+  return (ParameterizedFilterName name parameter)
+
+filterWithoutParam :: Parser Filter
+filterWithoutParam = do
+  name <- identifier
+  return (FilterName name)
 
 yamlPreamble :: Parser LiquidObject
 yamlPreamble = do

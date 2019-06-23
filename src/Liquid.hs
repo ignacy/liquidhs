@@ -65,23 +65,6 @@ identifier = (lexeme . try) (p >>= check)
                  then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                  else return x
 
-whileParser :: Parser LiquidObject
-whileParser = between spaceConsumer eof liquidObject
-
-liquidObject :: Parser LiquidObject
-liquidObject = f <$> sepBy1 liquidObject' spaceConsumer
-  where
-    f l = if length l == 1 then head l else Seq l
-
-liquidObject' :: Parser LiquidObject
-liquidObject' = parens liquidObject
-  <|> curlys liquidObject
-  <|> yamlPreamble
-  <|> stringLiteral
-  <|> assignement
-  <|> captureStatement
-  <|> jsonParens liquidObject
-
 stringLiteral :: Parser LiquidObject
 stringLiteral = do
   void (symbol "\"")
@@ -139,3 +122,22 @@ captureStatement = do
   void (symbol "{%")
   void (symbol "endcapture")
   return (Capture ident value)
+
+whileParser :: Parser LiquidObject
+whileParser = between spaceConsumer eof liquidObject
+
+liquidObject :: Parser LiquidObject
+liquidObject = f <$> sepBy1 liquidObject' spaceConsumer
+  where
+    f l = if length l == 1 then head l else Seq l
+
+liquidObject' :: Parser LiquidObject
+liquidObject' = parens liquidObject
+  <|> curlys liquidObject
+  <|> yamlPreamble
+  <|> stringLiteral
+  <|> assignement
+  <|> captureStatement
+  <|> jsonParens liquidObject
+
+

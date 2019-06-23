@@ -14,7 +14,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 data Filter = FilterName String
   | ParameterizedFilterName String String
-  deriving (Show)
+  deriving (Show, Eq)
 
 data LiquidObject
   = LIdentifier String
@@ -23,7 +23,7 @@ data LiquidObject
   | StringLiteral String
   | YAMLPreamble String
   | Seq [LiquidObject]
-  deriving (Show)
+  deriving (Show, Eq)
 
 type Parser = Parsec Void String
 
@@ -68,28 +68,28 @@ identifier = (lexeme . try) (p >>= check)
 stringLiteral :: Parser LiquidObject
 stringLiteral = do
   void (symbol "\"")
-  value <- dbg "string" (some (alphaNumChar <|> char ' ' <|> char '_'))
+  value <- (some (alphaNumChar <|> char ' ' <|> char '_'))
   void (symbol "\"")
   return (StringLiteral value)
 
 getString :: Parser String
-getString = dbg "String" (some (alphaNumChar <|> char ' ' <|> char '_'))
+getString = (some (alphaNumChar <|> char ' ' <|> char '_'))
 
 justString :: Parser String
 justString = do
   void (symbol "\"")
-  value <- dbg "string" getString
+  value <- getString
   void (symbol "\"")
   return value
 
 assignement :: Parser LiquidObject
 assignement = do
   void (symbol "assign")
-  var <- dbg "identifier" identifier
+  var <- identifier
   void (symbol "=")
-  expr <- dbg "expressionValue" (justString <|> identifier)
+  expr <- (justString <|> identifier)
   skipMany $ symbol "| "
-  filters <- dbg "expressionFilters" $ (filterCall `sepBy` (symbol "| "))
+  filters <- filterCall `sepBy` (symbol "| ")
   return (Assign var expr filters)
 
 filterCall :: Parser Filter
@@ -110,15 +110,15 @@ filterWithoutParam = do
 yamlPreamble :: Parser LiquidObject
 yamlPreamble = do
   void (symbol "---")
-  value <- dbg "yaml" ((lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol "---")))
+  value <- ((lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol "---")))
   return (YAMLPreamble value)
 
 captureStatement :: Parser LiquidObject
 captureStatement = do
   void (symbol "capture")
-  ident <- dbg "capture name" identifier
+  ident <- identifier
   void (symbol "%}")
-  value <- dbg "capture value" liquidObject'
+  value <- liquidObject'
   void (symbol "{%")
   void (symbol "endcapture")
   return (Capture ident value)

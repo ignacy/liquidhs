@@ -20,6 +20,7 @@ data LiquidObject
   = LIdentifier String
   | Assign String String [Filter]
   | Capture String LiquidObject
+  | HtmlTag String String String
   | StringLiteral String
   | YAMLPreamble String
   | Seq [LiquidObject]
@@ -37,7 +38,7 @@ lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaceConsumer
 
 symbol :: String -> Parser String
-symbol = L.symbol spaceConsumer
+symbol = L.symbol' spaceConsumer
 
 parens :: Parser a -> Parser a
 parens = between (symbol "{{") (symbol "}}")
@@ -81,6 +82,16 @@ justString = do
   value <- getString
   void (symbol "\"")
   return value
+
+
+htmlTag:: Parser LiquidObject
+htmlTag = do
+  void (symbol "<")
+  tagName <- (manyTill (L.charLiteral) (symbol " "))
+  tagAttributes <- ((lexeme . try) (manyTill (L.charLiteral) (symbol ">")))
+  tagBody <- ((lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" ++ tagName ))))
+  void (symbol ">")
+  return (HtmlTag tagName tagAttributes tagBody)
 
 assignement :: Parser LiquidObject
 assignement = do
@@ -139,5 +150,4 @@ liquidObject' = parens liquidObject
   <|> assignement
   <|> captureStatement
   <|> jsonParens liquidObject
-
-
+  <|> htmlTag

@@ -1,0 +1,18 @@
+{% assign variable = "value" %}
+
+{% assign header = request.request.headers['HTTP_STRIPE_SIGNATURE'] | split: ',' %}
+
+{% comment %}
+{% if signature == signature_hash.v1 %}
+  {% if params.type == 'payout.paid' %}
+    {% include 'webhooks/payout_paid' %}
+  {% elsif params.type == 'customer.source.expiring' %}
+    {% include 'webhooks/card_expiring' %}
+  {% endif %}
+{% endif %}
+
+{% endcomment %}
+
+{% assign zle = "warotsc" }
+
+{{ "page end" }}

@@ -9,11 +9,11 @@ printParsingResults :: Either (ParseErrorBundle String Data.Void.Void) LiquidObj
 printParsingResults eitherLiquidOrError =
     case (eitherLiquidOrError) of
         Left errorBundle -> errorBundlePretty errorBundle
-        Right success -> "success"
+        Right success -> show success
 
 main :: IO ()
 main = do
   input <- getContents
   --  parseTest whileParser input
   putStr $ printParsingResults(parse whileParser "" input)
- 
+

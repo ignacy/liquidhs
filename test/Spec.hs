@@ -62,3 +62,15 @@ main = hspec $
             " <html><body></body></html> "
             `shouldParse`
             (HtmlTag "html" (HtmlAttribute "") (HtmlTag "body" (HtmlAttribute "") (StringLiteral "")))
+
+          it "parses HTML element with attributes and body content" $
+            parse whileParser ""
+            " <html><body class=\"container\"><div class=\"row\">My content</body></html> "
+            `shouldParse`
+            (HtmlTag "html" (HtmlAttribute "") (HtmlTag "body" (HtmlAttribute "class=\"container\"") (StringLiteral "<div class=\"row\">My content")))
+
+          it "parses HTML element with Liquid content" $
+            parse whileParser ""
+            "<div> {% assign variable = \"2\" %}</div> "
+            `shouldParse`
+            (HtmlTag "div" (HtmlAttribute "") (Assign "variable" "2" []))

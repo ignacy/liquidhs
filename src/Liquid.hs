@@ -16,11 +16,15 @@ data Filter = FilterName String
   | ParameterizedFilterName String String
   deriving (Show, Eq)
 
+
+data HtmlAttribute = HtmlAttribute String
+  deriving (Show, Eq)
+
 data LiquidObject
   = LIdentifier String
   | Assign String String [Filter]
   | Capture String LiquidObject
-  | HtmlTag String String String
+  | HtmlTag String HtmlAttribute LiquidObject
   | StringLiteral String
   | YAMLPreamble String
   | Seq [LiquidObject]
@@ -83,15 +87,31 @@ justString = do
   void (symbol "\"")
   return value
 
+imTryParse :: String -> Either (ParseErrorBundle s e) LiquidObject  -> LiquidObject
+imTryParse b x =
+  case x of
+    Left e -> StringLiteral b
+    Right a -> a
 
-htmlTag:: Parser LiquidObject
-htmlTag = do
+htmlTagWithAttributes :: Parser LiquidObject
+htmlTagWithAttributes = do
   void (symbol "<")
-  tagName <- (manyTill (L.charLiteral) (symbol " "))
-  tagAttributes <- ((lexeme . try) (manyTill (L.charLiteral) (symbol ">")))
-  tagBody <- ((lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" ++ tagName ))))
+  tagName <- manyTill (L.charLiteral) (symbol " ")
+  tagAttributes <- manyTill (L.charLiteral) (symbol ">")
+  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" ++ tagName )))
   void (symbol ">")
-  return (HtmlTag tagName tagAttributes tagBody)
+  return (HtmlTag tagName (HtmlAttribute tagAttributes) (imTryParse tagBody (parse whileParser "" tagBody)))
+
+htmlTagWithoutAttributes :: Parser LiquidObject
+htmlTagWithoutAttributes = do
+  void (symbol "<")
+  tagName <- manyTill (L.charLiteral) (symbol ">")
+  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" ++ tagName )))
+  void (symbol ">")
+  return (HtmlTag tagName (HtmlAttribute "") (imTryParse tagBody (parse whileParser "" tagBody)))
+
+htmlTag :: Parser LiquidObject
+htmlTag = try htmlTagWithAttributes <|> htmlTagWithoutAttributes
 
 assignement :: Parser LiquidObject
 assignement = do

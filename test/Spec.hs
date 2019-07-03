@@ -52,6 +52,13 @@ main = hspec $
       describe "Catches errors " $ do
           it "knows when there is no closing tag" $
             parse whileParser "" `shouldFailOn` "{%"
-            
+
           it "knows when there is no opening tag" $
             parse whileParser "" `shouldFailOn` "%}"
+
+      describe "HTML fragments " $ do
+          it "parses HTML element" $
+            parse whileParser ""
+            " <html><body></body></html> "
+            `shouldParse`
+            (HtmlTag "html" (HtmlAttribute "") (HtmlTag "body" (HtmlAttribute "") (StringLiteral "")))

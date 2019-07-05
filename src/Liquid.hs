@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
 
 module Liquid where
 
@@ -8,29 +9,29 @@ import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Debug
-import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Text.Megaparsec.Char.Lexer as L
 
-data Filter = FilterName String
-  | ParameterizedFilterName String String
+default (T.Text)
+
+data Filter = FilterName T.Text
+  | ParameterizedFilterName T.Text T.Text
   deriving (Show, Eq)
 
-
-data HtmlAttribute = HtmlAttribute String
+data HtmlAttribute = HtmlAttribute T.Text
   deriving (Show, Eq)
 
 data LiquidObject
-  = LIdentifier String
-  | Assign String String [Filter]
-  | Capture String LiquidObject
-  | HtmlTag String HtmlAttribute LiquidObject
-  | StringLiteral String
-  | YAMLPreamble String
+  = LIdentifier T.Text
+  | Assign T.Text T.Text [Filter]
+  | Capture T.Text LiquidObject
+  | HtmlTag T.Text HtmlAttribute LiquidObject
+  | StringLiteral T.Text
+  | YAMLPreamble T.Text
   | Seq [LiquidObject]
   deriving (Show, Eq)
 
-type Parser = Parsec Void String
+type Parser = Parsec Void T.Text
 
 spaceConsumer :: Parser ()
 spaceConsumer = L.space space1 lineCmnt blockCmnt
@@ -41,7 +42,7 @@ spaceConsumer = L.space space1 lineCmnt blockCmnt
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaceConsumer
 
-symbol :: String -> Parser String
+symbol :: T.Text -> Parser T.Text
 symbol = L.symbol' spaceConsumer
 
 parens :: Parser a -> Parser a
@@ -56,38 +57,40 @@ jsonParens = between (symbol "{") (symbol "}")
 integer :: Parser Integer
 integer = lexeme L.decimal
 
-reservedWord :: String -> Parser ()
+reservedWord :: T.Text -> Parser ()
 reservedWord w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
-reservedWords :: [String]
+reservedWords :: [T.Text]
 reservedWords = ["if", "endif", "for", "endfor", "assign", "capture", "endcapture", "query_graph", "in"]
 
-identifier :: Parser String
+identifier :: Parser T.Text
 identifier = (lexeme . try) (p >>= check)
   where
     p = (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '.' <|> char '[' <|> char ']' <|> char '\'')
-    check x = if x `elem` reservedWords
+    check x = if (T.pack x) `elem` reservedWords
                  then fail $ "keyword " ++ show x ++ " cannot be an identifier"
-                 else return x
+                 else return (T.pack x)
 
 stringLiteral :: Parser LiquidObject
 stringLiteral = do
   void (symbol "\"")
   value <- (some (alphaNumChar <|> char ' ' <|> char '_'))
   void (symbol "\"")
-  return (StringLiteral value)
+  return (StringLiteral (T.pack value))
 
-getString :: Parser String
-getString = (some (alphaNumChar <|> char ' ' <|> char '_'))
+getString :: Parser T.Text
+getString = do
+  value <- some (alphaNumChar <|> char ' ' <|> char '_')
+  return (T.pack value)
 
-justString :: Parser String
+justString :: Parser T.Text
 justString = do
   void (symbol "\"")
   value <- getString
   void (symbol "\"")
   return value
 
-imTryParse :: String -> Either (ParseErrorBundle s e) LiquidObject  -> LiquidObject
+imTryParse :: T.Text -> Either (ParseErrorBundle s e) LiquidObject  -> LiquidObject
 imTryParse b x =
   case x of
     Left e -> StringLiteral b
@@ -98,17 +101,17 @@ htmlTagWithAttributes = do
   void (symbol "<")
   tagName <- manyTill (L.charLiteral) (symbol " ")
   tagAttributes <- manyTill (L.charLiteral) (symbol ">")
-  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" ++ tagName )))
+  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
   void (symbol ">")
-  return (HtmlTag tagName (HtmlAttribute tagAttributes) (imTryParse tagBody (parse whileParser "" tagBody)))
+  return (HtmlTag (T.pack tagName) (HtmlAttribute (T.pack tagAttributes)) (imTryParse (T.pack tagBody) (parse whileParser "" (T.pack tagBody))))
 
 htmlTagWithoutAttributes :: Parser LiquidObject
 htmlTagWithoutAttributes = do
   void (symbol "<")
   tagName <- manyTill (L.charLiteral) (symbol ">")
-  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" ++ tagName )))
+  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
   void (symbol ">")
-  return (HtmlTag tagName (HtmlAttribute "") (imTryParse tagBody (parse whileParser "" tagBody)))
+  return (HtmlTag (T.pack tagName) (HtmlAttribute "") (imTryParse (T.pack tagBody) (parse whileParser "" (T.pack tagBody))))
 
 htmlTag :: Parser LiquidObject
 htmlTag = try htmlTagWithAttributes <|> htmlTagWithoutAttributes
@@ -131,7 +134,7 @@ filterWithParam = do
   name <- identifier
   void (symbol ":")
   parameter <- (some (alphaNumChar <|> char ' ' <|> char '_' <|> char '\'' <|> char ',' <|> char '.'))
-  return (ParameterizedFilterName name parameter)
+  return (ParameterizedFilterName name (T.pack parameter))
 
 filterWithoutParam :: Parser Filter
 filterWithoutParam = do
@@ -142,7 +145,7 @@ yamlPreamble :: Parser LiquidObject
 yamlPreamble = do
   void (symbol "---")
   value <- ((lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol "---")))
-  return (YAMLPreamble value)
+  return (YAMLPreamble (T.pack value))
 
 captureStatement :: Parser LiquidObject
 captureStatement = do

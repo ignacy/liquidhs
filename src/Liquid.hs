@@ -71,24 +71,20 @@ identifier = (lexeme . try) (p >>= check)
                  then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                  else return (T.pack x)
 
-stringLiteral :: Parser LiquidObject
-stringLiteral = do
-  void (symbol "\"")
-  value <- (some (alphaNumChar <|> char ' ' <|> char '_'))
-  void (symbol "\"")
-  return (StringLiteral (T.pack value))
+getString :: Parser [Char]
+getString = (lexeme . try) ((:) <$> alphaNumChar <*> many (alphaNumChar <|> char ' ' <|> char '_'))
 
-getString :: Parser T.Text
-getString = do
-  value <- some (alphaNumChar <|> char ' ' <|> char '_')
-  return (T.pack value)
-
-justString :: Parser T.Text
-justString = do
+stringValue :: Parser T.Text
+stringValue = do
   void (symbol "\"")
   value <- getString
   void (symbol "\"")
-  return value
+  return (T.pack(value))
+
+stringLiteral :: Parser LiquidObject
+stringLiteral = do
+  value <- stringValue
+  return (StringLiteral value)
 
 imTryParse :: T.Text -> Either (ParseErrorBundle s e) LiquidObject  -> LiquidObject
 imTryParse b x =
@@ -101,7 +97,7 @@ htmlTagWithAttributes = do
   void (symbol "<")
   tagName <- manyTill (L.charLiteral) (symbol " ")
   tagAttributes <- manyTill (L.charLiteral) (symbol ">")
-  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
+  tagBody <- (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
   void (symbol ">")
   return (HtmlTag (T.pack tagName) (HtmlAttribute (T.pack tagAttributes)) (imTryParse (T.pack tagBody) (parse whileParser "" (T.pack tagBody))))
 
@@ -121,7 +117,7 @@ assignement = do
   void (symbol "assign")
   var <- identifier
   void (symbol "=")
-  expr <- (justString <|> identifier)
+  expr <- (stringValue <|> identifier)
   skipMany $ symbol "| "
   filters <- filterCall `sepBy` (symbol "| ")
   return (Assign var expr filters)

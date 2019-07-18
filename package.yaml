@@ -25,6 +25,8 @@ dependencies:
 - hspec-megaparsec
 - text
 - parser-combinators
+- snap-core
+- snap-server
 
 library:
   source-dirs: src

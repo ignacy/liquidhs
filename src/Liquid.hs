@@ -94,17 +94,17 @@ imTryParse b x =
 
 htmlTagWithAttributes :: Parser LiquidObject
 htmlTagWithAttributes = do
-  void (symbol "<")
-  tagName <- manyTill (L.charLiteral) (symbol " ")
-  tagAttributes <- manyTill (L.charLiteral) (symbol ">")
-  tagBody <- (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
+  void (symbol "<" <* notFollowedBy (symbol "/"))
+  tagName <- (manyTill (L.charLiteral) (symbol " " <* notFollowedBy (symbol "<")))
+  tagAttributes <- manyTill L.charLiteral (symbol ">")
+  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
   void (symbol ">")
   return (HtmlTag (T.pack tagName) (HtmlAttribute (T.pack tagAttributes)) (imTryParse (T.pack tagBody) (parse whileParser "" (T.pack tagBody))))
 
 htmlTagWithoutAttributes :: Parser LiquidObject
 htmlTagWithoutAttributes = do
-  void (symbol "<")
-  tagName <- manyTill (L.charLiteral) (symbol ">")
+  void (symbol "<" <* notFollowedBy (symbol "/"))
+  tagName <- (manyTill (L.charLiteral) (symbol ">"))
   tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
   void (symbol ">")
   return (HtmlTag (T.pack tagName) (HtmlAttribute "") (imTryParse (T.pack tagBody) (parse whileParser "" (T.pack tagBody))))

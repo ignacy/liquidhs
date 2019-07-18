@@ -74,3 +74,15 @@ main = hspec $
             "<div> {% assign variable = \"2\" %}</div> "
             `shouldParse`
             (HtmlTag "div" (HtmlAttribute "") (Assign "variable" "2" []))
+
+          it "parses nested div inside of a section with attributes" $
+            parse whileParser ""
+            "<section class=\"a\">  <div class=\"b\"> </div> </section> "
+            `shouldParse`
+            (HtmlTag "section" (HtmlAttribute "class=\"a\"") (HtmlTag "div" (HtmlAttribute "class=\"b\"") (StringLiteral "")))
+
+          it "parses nested div inside of a section without attributes" $
+            parse whileParser ""
+            "<section>  <div> </div> </section> "
+            `shouldParse`
+            (HtmlTag "section" (HtmlAttribute "") (HtmlTag "div" (HtmlAttribute "") (StringLiteral "")))

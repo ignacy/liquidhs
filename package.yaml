@@ -26,6 +26,7 @@ dependencies:
 - hspec-megaparsec
 - text
 - parser-combinators
+- optparse-applicative >=0.14 && <0.15
 
 library:
   source-dirs: src

@@ -4,6 +4,7 @@
 module Main where
 
 import Liquid
+import Params
 import Text.Megaparsec
 import Data.Void
 import qualified Data.Text as T
@@ -16,8 +17,10 @@ printParsingResults eitherLiquidOrError =
         Left errorBundle -> errorBundlePretty errorBundle
         Right success -> show success
 
+work :: Params -> IO ()
+work params = do
+  liquidTemplate <- readFile (fname params)
+  putStr $ printParsingResults(Text.Megaparsec.parse whileParser "" (T.pack liquidTemplate))
+
 main :: IO ()
-main = do
-  input <- getContents
-  --  parseTest whileParser input
-  putStr $ printParsingResults(parse whileParser "" (T.pack input))
+main = cmdLineParser >>= work

@@ -15,3 +15,9 @@ printParsingResults eitherLiquidOrError =
     case (eitherLiquidOrError) of
         Left errorBundle -> errorBundlePretty errorBundle
         Right success -> show success
+
+main :: IO ()
+main = do
+  input <- getContents
+  --  parseTest whileParser input
+  putStr $ printParsingResults(parse whileParser "" (T.pack input))

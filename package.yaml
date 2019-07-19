@@ -20,13 +20,12 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- bytestring >=0.10 && <0.11
 - megaparsec >= 7 && < 8
 - hspec
 - hspec-megaparsec
 - text
 - parser-combinators
-- snap-core
-- snap-server
 
 library:
   source-dirs: src

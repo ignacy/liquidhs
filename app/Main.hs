@@ -4,6 +4,7 @@
 module Main where
 
 import Liquid
+import Compiler (compile)
 import Params
 import Text.Megaparsec
 import Data.Void
@@ -20,7 +21,9 @@ printParsingResults eitherLiquidOrError =
 work :: Params -> IO ()
 work params = do
   liquidTemplate <- readFile (fname params)
-  putStr $ printParsingResults(Text.Megaparsec.parse whileParser "" (T.pack liquidTemplate))
+  case (Params.parse params) of
+    False -> putStr $ printParsingResults(Text.Megaparsec.parse whileParser "" (T.pack liquidTemplate))
+    True -> putStr $ compile(Text.Megaparsec.parse whileParser "" (T.pack liquidTemplate))
 
 main :: IO ()
 main = cmdLineParser >>= work

@@ -25,6 +25,7 @@ dependencies:
 - hspec
 - hspec-megaparsec
 - text
+- hasql
 - parser-combinators
 - optparse-applicative >=0.14 && <0.15
 

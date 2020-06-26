@@ -170,3 +170,6 @@ liquidObject' = parens liquidObject
   <|> captureStatement
   <|> jsonParens liquidObject
   <|> htmlTag
+
+parseChars :: [Char] -> Either (ParseErrorBundle T.Text Data.Void.Void) LiquidObject
+parseChars chars = parse whileParser "" (T.pack chars)

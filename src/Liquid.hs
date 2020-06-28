@@ -26,6 +26,7 @@ data LiquidObject
   | Assign T.Text T.Text [Filter]
   | Capture T.Text LiquidObject
   | HtmlTag T.Text HtmlAttribute LiquidObject
+  | IncludeForm T.Text
   | StringLiteral T.Text
   | YAMLPreamble T.Text
   | Seq [LiquidObject]
@@ -58,13 +59,13 @@ integer :: Parser Integer
 integer = lexeme L.decimal
 
 reservedWord :: T.Text -> Parser ()
-reservedWord w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
+reservedWord w = lexeme . try $ (string w *> notFollowedBy alphaNumChar)
 
 reservedWords :: [T.Text]
 reservedWords = ["if", "endif", "for", "endfor", "assign", "capture", "endcapture", "query_graph", "in"]
 
 identifier :: Parser T.Text
-identifier = (lexeme . try) (p >>= check)
+identifier = lexeme . try $ (p >>= check)
   where
     p = (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '.' <|> char '[' <|> char ']' <|> char '\'')
     check x = if (T.pack x) `elem` reservedWords
@@ -72,13 +73,15 @@ identifier = (lexeme . try) (p >>= check)
                  else return (T.pack x)
 
 getString :: Parser [Char]
-getString = (lexeme . try) ((:) <$> alphaNumChar <*> many (alphaNumChar <|> char ' ' <|> char '_'))
+getString = lexeme . try $ ((:) <$> alphaNumChar <*> many (alphaNumChar <|> char ' ' <|> char '_'))
 
 stringValue :: Parser T.Text
 stringValue = do
-  void (symbol "\"")
+  opening <- eitherP (symbol "\"") (symbol "'")
   value <- getString
-  void (symbol "\"")
+  case opening of
+    Left qt -> void $ symbol qt
+    Right qtt -> void $ symbol qtt
   return (T.pack(value))
 
 stringLiteral :: Parser LiquidObject
@@ -129,7 +132,7 @@ filterWithParam :: Parser Filter
 filterWithParam = do
   name <- identifier
   void (symbol ":")
-  parameter <- (some (alphaNumChar <|> char ' ' <|> char '_' <|> char '\'' <|> char ',' <|> char '.'))
+  parameter <- some (alphaNumChar <|> char ' ' <|> char '_' <|> char '\'' <|> char ',' <|> char '.')
   return (ParameterizedFilterName name (T.pack parameter))
 
 filterWithoutParam :: Parser Filter
@@ -137,10 +140,16 @@ filterWithoutParam = do
   name <- identifier
   return (FilterName name)
 
+includeForm :: Parser LiquidObject
+includeForm = do
+  void $ symbol "include_form"
+  path <- (stringValue <|> identifier)
+  return (IncludeForm path)
+
 yamlPreamble :: Parser LiquidObject
 yamlPreamble = do
-  void (symbol "---")
-  value <- ((lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol "---")))
+  void $ symbol "---"
+  value <- lexeme . try $ manyTill (L.charLiteral <|> newline) (symbol "---")
   return (YAMLPreamble (T.pack value))
 
 captureStatement :: Parser LiquidObject
@@ -168,6 +177,7 @@ liquidObject' = parens liquidObject
   <|> stringLiteral
   <|> assignement
   <|> captureStatement
+  <|> includeForm
   <|> jsonParens liquidObject
   <|> htmlTag
 

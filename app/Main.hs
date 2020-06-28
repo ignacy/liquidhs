@@ -21,8 +21,7 @@ import qualified Hasql.Connection as Connection
 default (T.Text)
 
 printParsingResults :: Either (ParseErrorBundle T.Text Data.Void.Void) LiquidObject -> String
-printParsingResults eitherLiquidOrError =
-    case eitherLiquidOrError of
+printParsingResults eitherLiquidOrError = case eitherLiquidOrError of
         Left errorBundle -> errorBundlePretty errorBundle
         Right success -> show success
 

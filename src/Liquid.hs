@@ -27,10 +27,23 @@ data LiquidObject
   | Capture T.Text LiquidObject
   | HtmlTag T.Text HtmlAttribute LiquidObject
   | IncludeForm T.Text
+  | GraphQLQuery T.Text T.Text
   | StringLiteral T.Text
   | YAMLPreamble T.Text
   | Seq [LiquidObject]
-  deriving (Show, Eq)
+  deriving Eq
+
+
+instance Show LiquidObject where
+  show (LIdentifier i) = "Identifier: " ++ (show i) ++ "\n"
+  show (Assign variable value filters) = "Assignement variable: " ++ (T.unpack variable) ++ " value: " ++ (T.unpack value) ++ " filters: " ++ (concatMap show filters) ++ "\n"
+  show (Capture name content) = "Capture block named: " ++ (T.unpack name) ++ " " ++ (show content) ++ "\n"
+  show (HtmlTag name attribute content) = "Html tag: " ++ (T.unpack name) ++ " " ++ " attributes: " ++ " " ++ (show content) ++ "\n"
+  show (IncludeForm formName) = "Include html form: " ++ (T.unpack formName) ++ "\n"
+  show (GraphQLQuery _ queryName) = "GraphQL query: " ++ (T.unpack queryName) ++ "\n"
+  show (StringLiteral text) = (T.unpack text)
+  show (YAMLPreamble text) = (T.unpack text)
+  show (Seq objects) = "\n\n This page content: \n " ++ (concatMap show objects)
 
 type Parser = Parsec Void T.Text
 
@@ -51,6 +64,9 @@ parens = between (symbol "{{") (symbol "}}")
 
 curlys :: Parser a -> Parser a
 curlys = between (symbol "{%") (symbol "%}")
+
+curlysDash :: Parser a -> Parser a
+curlysDash = between (symbol "{%-") (symbol "-%}")
 
 jsonParens :: Parser a -> Parser a
 jsonParens = between (symbol "{") (symbol "}")
@@ -90,10 +106,10 @@ stringLiteral = do
   return (StringLiteral value)
 
 imTryParse :: T.Text -> Either (ParseErrorBundle s e) LiquidObject  -> LiquidObject
-imTryParse b x =
-  case x of
-    Left e -> StringLiteral b
-    Right a -> a
+imTryParse b = extract
+  where
+    extract (Left e) = StringLiteral b
+    extract (Right a) = a
 
 htmlTagWithAttributes :: Parser LiquidObject
 htmlTagWithAttributes = do
@@ -146,6 +162,14 @@ includeForm = do
   path <- (stringValue <|> identifier)
   return (IncludeForm path)
 
+executeGraphql :: Parser LiquidObject
+executeGraphql = do
+  void $ symbol "graphql"
+  ident <- identifier
+  void $ symbol "="
+  query_name <- (stringValue <|> identifier)
+  return (GraphQLQuery ident query_name)
+
 yamlPreamble :: Parser LiquidObject
 yamlPreamble = do
   void $ symbol "---"
@@ -172,12 +196,14 @@ liquidObject = f <$> sepBy1 liquidObject' spaceConsumer
 
 liquidObject' :: Parser LiquidObject
 liquidObject' = parens liquidObject
+  <|> curlysDash liquidObject
   <|> curlys liquidObject
   <|> yamlPreamble
   <|> stringLiteral
   <|> assignement
   <|> captureStatement
   <|> includeForm
+  <|> executeGraphql
   <|> jsonParens liquidObject
   <|> htmlTag
 

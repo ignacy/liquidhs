@@ -43,6 +43,6 @@ main = do
       case result of
         Left qe -> putStr $ show qe
         Right r -> case r of
-          Nothing -> putStrLn $ "Page with ID=" ++ (show pageId) ++ " not found"
-          Just s -> putStrLn $ "---> For Page with ID=" ++ (show pageId) ++ printParsingResults(Text.Megaparsec.parse whileParser "" s)
+          Nothing -> putStrLn $ "Page with ID=" ++ show pageId ++ " not found"
+          Just s -> putStrLn $ "---> For Page with ID=" ++ show pageId ++ printParsingResults(Text.Megaparsec.parse whileParser "" s)
     connectionSettings = Connection.settings "localhost" 5432 "nearme" "nearme" "nearme_development"

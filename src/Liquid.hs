@@ -18,7 +18,7 @@ data Filter = FilterName T.Text
   | ParameterizedFilterName T.Text T.Text
   deriving (Show, Eq)
 
-data HtmlAttribute = HtmlAttribute T.Text
+newtype HtmlAttribute = HtmlAttribute T.Text
   deriving (Show, Eq)
 
 data LiquidObject
@@ -36,16 +36,16 @@ data LiquidObject
 
 
 instance Show LiquidObject where
-  show (LIdentifier i) = "Identifier: " ++ (show i) ++ "\n"
-  show (Assign variable value filters) = "Assignement variable: " ++ (T.unpack variable) ++ " value: " ++ (T.unpack value) ++ " filters: " ++ (concatMap show filters) ++ "\n"
-  show (Capture name content) = "Capture block named: " ++ (T.unpack name) ++ " " ++ (show content) ++ "\n"
-  show (HtmlTag name attribute content) = "Html tag: " ++ (T.unpack name) ++ " " ++ " attributes: " ++ " " ++ (show content) ++ "\n"
-  show (IncludeForm formName) = "Include html form: " ++ (T.unpack formName) ++ "\n"
-  show (Include partial) = "Include partial : " ++ (T.unpack partial) ++ "\n"
-  show (GraphQLQuery _ queryName) = "GraphQL query: " ++ (T.unpack queryName) ++ "\n"
-  show (StringLiteral text) = (T.unpack text)
-  show (YAMLPreamble text) = (T.unpack text)
-  show (Seq objects) = "\n\n This page content: \n " ++ (concatMap show objects)
+  show (LIdentifier i) = "Identifier: " ++ show i ++ "\n"
+  show (Assign variable value filters) = "Assignement variable: " ++ T.unpack variable ++ " value: " ++ T.unpack value ++ " filters: " ++ concatMap show filters ++ "\n"
+  show (Capture name content) = "Capture block named: " ++ T.unpack name ++ " " ++ show content ++ "\n"
+  show (HtmlTag name attribute content) = "Html tag: " ++ T.unpack name ++ " " ++ " attributes: " ++ " " ++ show content ++ "\n"
+  show (IncludeForm formName) = "Include html form: " ++ T.unpack formName ++ "\n"
+  show (Include partial) = "Include partial : " ++ T.unpack partial ++ "\n"
+  show (GraphQLQuery _ queryName) = "GraphQL query: " ++ T.unpack queryName ++ "\n"
+  show (StringLiteral text) = T.unpack text
+  show (YAMLPreamble text) = T.unpack text
+  show (Seq objects) = "\n\n This page content: \n " ++ concatMap show objects
 
 type Parser = Parsec Void T.Text
 
@@ -54,10 +54,7 @@ spaceConsumer = recover $ L.space space1 lineCmnt blockCmnt
   where
     lineCmnt = L.skipBlockComment "{% comment %}" "{% endcomment %}"
     blockCmnt = L.skipBlockComment "{% comment %}" "{% endcomment %}"
-    recover = withRecovery $ \e -> do
-          registerParseError e
-
-
+    recover = withRecovery $ \e -> registerParseError e
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaceConsumer
@@ -90,7 +87,7 @@ identifier :: Parser T.Text
 identifier = lexeme . try $ (p >>= check)
   where
     p = (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '.' <|> char '[' <|> char ']' <|> char '\'')
-    check x = if (T.pack x) `elem` reservedWords
+    check x = if T.pack x `elem` reservedWords
                  then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                  else return (T.pack x)
 
@@ -104,12 +101,10 @@ stringValue = do
   case opening of
     Left qt   -> void $ symbol qt
     Right qtt -> void $ symbol qtt
-  return (T.pack(value))
+  return (T.pack value)
 
 stringLiteral :: Parser LiquidObject
-stringLiteral = do
-  value <- stringValue
-  return (StringLiteral value)
+stringLiteral = StringLiteral <$> stringValue
 
 imTryParse :: T.Text -> Either (ParseErrorBundle s e) LiquidObject  -> LiquidObject
 imTryParse b = extract
@@ -120,7 +115,7 @@ imTryParse b = extract
 htmlTagWithAttributes :: Parser LiquidObject
 htmlTagWithAttributes = do
   void (symbol "<" <* notFollowedBy (symbol "/"))
-  tagName <- manyTill (L.charLiteral) (symbol " " <* notFollowedBy (symbol "<"))
+  tagName <- manyTill L.charLiteral (symbol " " <* notFollowedBy (symbol "<"))
   tagAttributes <- manyTill L.charLiteral (symbol ">")
   tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> T.pack tagName)))
   void (symbol ">")
@@ -129,8 +124,8 @@ htmlTagWithAttributes = do
 htmlTagWithoutAttributes :: Parser LiquidObject
 htmlTagWithoutAttributes = do
   void (symbol "<" <* notFollowedBy (symbol "/"))
-  tagName <- manyTill (L.charLiteral) (symbol ">")
-  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
+  tagName <- manyTill L.charLiteral (symbol ">")
+  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> T.pack tagName)))
   void (symbol ">")
   return (HtmlTag (T.pack tagName) (HtmlAttribute "") (imTryParse (T.pack tagBody) (parse whileParser "" (T.pack tagBody))))
 
@@ -158,29 +153,24 @@ filterWithParam = do
   return (ParameterizedFilterName name (T.pack parameter))
 
 filterWithoutParam :: Parser Filter
-filterWithoutParam = do
-  name <- identifier
-  return (FilterName name)
+filterWithoutParam = FilterName <$> identifier
 
 includeForm :: Parser LiquidObject
 includeForm = do
   void $ symbol "include_form"
-  path <- (stringValue <|> identifier)
-  return (IncludeForm path)
+  IncludeForm <$> (stringValue <|> identifier)
 
 includeTag :: Parser LiquidObject
 includeTag = do
   void $ symbol "include"
-  path <- (stringValue <|> identifier)
-  return (Include path)
+  Include <$> (stringValue <|> identifier)
 
 executeGraphql :: Parser LiquidObject
 executeGraphql = do
   void $ symbol "graphql"
   ident <- identifier
   void $ symbol "="
-  query_name <- (stringValue <|> identifier)
-  return (GraphQLQuery ident query_name)
+  GraphQLQuery ident <$> (stringValue <|> identifier)
 
 yamlPreamble :: Parser LiquidObject
 yamlPreamble = do

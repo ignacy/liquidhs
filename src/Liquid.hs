@@ -27,6 +27,7 @@ data LiquidObject
   | Capture T.Text LiquidObject
   | HtmlTag T.Text HtmlAttribute LiquidObject
   | IncludeForm T.Text
+  | Include T.Text
   | GraphQLQuery T.Text T.Text
   | StringLiteral T.Text
   | YAMLPreamble T.Text
@@ -40,6 +41,7 @@ instance Show LiquidObject where
   show (Capture name content) = "Capture block named: " ++ (T.unpack name) ++ " " ++ (show content) ++ "\n"
   show (HtmlTag name attribute content) = "Html tag: " ++ (T.unpack name) ++ " " ++ " attributes: " ++ " " ++ (show content) ++ "\n"
   show (IncludeForm formName) = "Include html form: " ++ (T.unpack formName) ++ "\n"
+  show (Include partial) = "Include partial : " ++ (T.unpack partial) ++ "\n"
   show (GraphQLQuery _ queryName) = "GraphQL query: " ++ (T.unpack queryName) ++ "\n"
   show (StringLiteral text) = (T.unpack text)
   show (YAMLPreamble text) = (T.unpack text)
@@ -93,7 +95,7 @@ identifier = lexeme . try $ (p >>= check)
                  else return (T.pack x)
 
 getString :: Parser [Char]
-getString = lexeme . try $ ((:) <$> alphaNumChar <*> many (alphaNumChar <|> char ' ' <|> char '_'))
+getString = lexeme . try $ ((:) <$> alphaNumChar <*> many (alphaNumChar <|> char ' ' <|> char '_' <|> char '/'))
 
 stringValue :: Parser T.Text
 stringValue = do
@@ -166,6 +168,12 @@ includeForm = do
   path <- (stringValue <|> identifier)
   return (IncludeForm path)
 
+includeTag :: Parser LiquidObject
+includeTag = do
+  void $ symbol "include"
+  path <- (stringValue <|> identifier)
+  return (Include path)
+
 executeGraphql :: Parser LiquidObject
 executeGraphql = do
   void $ symbol "graphql"
@@ -207,6 +215,7 @@ liquidObject' = parens liquidObject
   <|> assignement
   <|> captureStatement
   <|> includeForm
+  <|> includeTag
   <|> executeGraphql
   <|> jsonParens liquidObject
   <|> htmlTag

@@ -1,3 +1,5 @@
 .stack-work/
 liquidhs.cabal
 *~
+/stack.yaml.lock
+/dist-newstyle/

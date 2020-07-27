@@ -1,13 +1,13 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings    #-}
 
 module DB where
 
-import Hasql.Session
-import Hasql.Statement
-import qualified Data.Text as T
-import qualified Hasql.Encoders as E
-import qualified Hasql.Decoders as D
+import qualified Data.Text       as T
+import qualified Hasql.Decoders  as D
+import qualified Hasql.Encoders  as E
+import           Hasql.Session
+import           Hasql.Statement
 
 import qualified Data.Int
 
@@ -18,6 +18,6 @@ findPageById :: Statement Data.Int.Int32 (Maybe T.Text)
 findPageById =
   Statement
     "select content from pages where id = $1"
-    (E.param E.int4)
-    (D.rowMaybe (D.column D.text))
+    (E.param (E.nonNullable E.int4))
+    (D.rowMaybe (D.column (D.nonNullable D.text)))
     True

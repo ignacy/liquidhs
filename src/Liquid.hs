@@ -114,16 +114,16 @@ imTryParse b = extract
 htmlTagWithAttributes :: Parser LiquidObject
 htmlTagWithAttributes = do
   void (symbol "<" <* notFollowedBy (symbol "/"))
-  tagName <- (manyTill (L.charLiteral) (symbol " " <* notFollowedBy (symbol "<")))
+  tagName <- manyTill (L.charLiteral) (symbol " " <* notFollowedBy (symbol "<"))
   tagAttributes <- manyTill L.charLiteral (symbol ">")
-  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
+  tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> T.pack tagName)))
   void (symbol ">")
   return (HtmlTag (T.pack tagName) (HtmlAttribute (T.pack tagAttributes)) (imTryParse (T.pack tagBody) (parse whileParser "" (T.pack tagBody))))
 
 htmlTagWithoutAttributes :: Parser LiquidObject
 htmlTagWithoutAttributes = do
   void (symbol "<" <* notFollowedBy (symbol "/"))
-  tagName <- (manyTill (L.charLiteral) (symbol ">"))
+  tagName <- manyTill (L.charLiteral) (symbol ">")
   tagBody <- (lexeme . try) (manyTill (L.charLiteral <|> newline) (symbol ("</" <> (T.pack tagName))))
   void (symbol ">")
   return (HtmlTag (T.pack tagName) (HtmlAttribute "") (imTryParse (T.pack tagBody) (parse whileParser "" (T.pack tagBody))))
@@ -136,9 +136,9 @@ assignement = do
   void (symbol "assign")
   var <- identifier
   void (symbol "=")
-  expr <- (stringValue <|> identifier)
+  expr <- stringValue <|> identifier
   skipMany $ symbol "| "
-  filters <- filterCall `sepBy` (symbol "| ")
+  filters <- filterCall `sepBy` symbol "| "
   return (Assign var expr filters)
 
 filterCall :: Parser Filter

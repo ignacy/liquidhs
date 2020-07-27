@@ -48,10 +48,14 @@ instance Show LiquidObject where
 type Parser = Parsec Void T.Text
 
 spaceConsumer :: Parser ()
-spaceConsumer = L.space space1 lineCmnt blockCmnt
+spaceConsumer = recover $ L.space space1 lineCmnt blockCmnt
   where
     lineCmnt = L.skipBlockComment "{% comment %}" "{% endcomment %}"
     blockCmnt = L.skipBlockComment "{% comment %}" "{% endcomment %}"
+    recover = withRecovery $ \e -> do
+          registerParseError e
+
+
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaceConsumer

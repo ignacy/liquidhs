@@ -1,16 +1,16 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings    #-}
 
 module Liquid where
 
-import Control.Monad (void)
-import Control.Monad.Combinators.Expr -- from parser-combinators
-import Data.Void
-import Text.Megaparsec
-import Text.Megaparsec.Char
-import Text.Megaparsec.Debug
-import qualified Data.Text as T
-import qualified Text.Megaparsec.Char.Lexer as L
+import           Control.Monad                  (void)
+import           Control.Monad.Combinators.Expr
+import qualified Data.Text                      as T
+import           Data.Void
+import           Text.Megaparsec
+import           Text.Megaparsec.Char
+import qualified Text.Megaparsec.Char.Lexer     as L
+import           Text.Megaparsec.Debug
 
 default (T.Text)
 
@@ -96,7 +96,7 @@ stringValue = do
   opening <- eitherP (symbol "\"") (symbol "'")
   value <- getString
   case opening of
-    Left qt -> void $ symbol qt
+    Left qt   -> void $ symbol qt
     Right qtt -> void $ symbol qtt
   return (T.pack(value))
 
@@ -108,7 +108,7 @@ stringLiteral = do
 imTryParse :: T.Text -> Either (ParseErrorBundle s e) LiquidObject  -> LiquidObject
 imTryParse b = extract
   where
-    extract (Left e) = StringLiteral b
+    extract (Left e)  = StringLiteral b
     extract (Right a) = a
 
 htmlTagWithAttributes :: Parser LiquidObject
